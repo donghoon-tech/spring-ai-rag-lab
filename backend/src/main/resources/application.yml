@@ -19,12 +19,15 @@ spring:
     ollama:
       base-url: http://localhost:11434
       chat:
-        model: llama3
+        model: llama3.2:1b
+      embedding:
+        model: nomic-embed-text
     vectorstore:
       pgvector:
         index-type: HNSW
         distance-type: COSINE_DISTANCE
-        dimensions: 1536
+        dimensions: 768
+        initialize-schema: true
     openai:
       api-key: ${OPENAI_API_KEY:dummy-key-to-pass-startup-check}
       enabled: false
