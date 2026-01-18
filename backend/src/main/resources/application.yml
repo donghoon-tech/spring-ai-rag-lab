@@ -9,6 +9,12 @@ spring:
       enabled: true
       file: compose.yaml
 
+  datasource:
+    url: jdbc:postgresql://localhost:5432/springairaglabdb
+    username: myuser
+    password: secret
+    driver-class-name: org.postgresql.Driver
+
   ai:
     ollama:
       base-url: http://localhost:11434
@@ -18,7 +24,12 @@ spring:
       pgvector:
         index-type: HNSW
         distance-type: COSINE_DISTANCE
-        dimensions: 1536 # Adjust based on model (e.g. 768 for nomic/llama3, 1536 for openai)
+        dimensions: 1536
+    openai:
+      api-key: ${OPENAI_API_KEY:dummy-key-to-pass-startup-check}
+      enabled: false
+      embedding: 
+        enabled: false
 
 server:
   port: 8080
