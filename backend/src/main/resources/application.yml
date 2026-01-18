@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: springairaglab
+  threads:
+    virtual:
+      enabled: true
+  docker:
+    compose:
+      enabled: true
+      file: compose.yaml
+
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        model: llama3
+    vectorstore:
+      pgvector:
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 1536 # Adjust based on model (e.g. 768 for nomic/llama3, 1536 for openai)
+
+server:
+  port: 8080
