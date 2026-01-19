@@ -37,6 +37,8 @@ dependencies {
 	implementation 'org.springframework.ai:spring-ai-pgvector-store-spring-boot-starter'
 	implementation 'org.springframework.ai:spring-ai-pdf-document-reader'
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
     runtimeOnly 'org.postgresql:postgresql'
     
 	compileOnly 'org.projectlombok:lombok'
