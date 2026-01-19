@@ -1,5 +1,6 @@
 package com.east.springairaglab.ingestion.service;
 
+import com.east.springairaglab.ingestion.factory.SplitterFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,11 +25,13 @@ class IngestionServiceTest {
     private VectorStore vectorStore;
 
     private IngestionService ingestionService;
+    private SplitterFactory splitterFactory;
     private Path tempDir;
 
     @BeforeEach
     void setUp() throws IOException {
-        ingestionService = new IngestionService(vectorStore);
+        splitterFactory = new SplitterFactory();
+        ingestionService = new IngestionService(vectorStore, splitterFactory);
         tempDir = Files.createTempDirectory("spring-ai-rag-lab-test");
     }
 
