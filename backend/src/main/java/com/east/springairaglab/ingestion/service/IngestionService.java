@@ -91,19 +91,35 @@ public class IngestionService {
      */
     private List<Document> loadDocument(Path path) {
         try {
+            String extension = getFileExtension(path);
+
+            // PDF files require special handling
+            if ("pdf".equalsIgnoreCase(extension)) {
+                return loadPdfDocument(path);
+            }
+
+            // Text-based files use TextReader
             FileSystemResource resource = new FileSystemResource(path);
             TextReader textReader = new TextReader(resource);
 
             // Add rich metadata
             textReader.getCustomMetadata().put("source", path.toString());
             textReader.getCustomMetadata().put("filename", path.getFileName().toString());
-            textReader.getCustomMetadata().put("file_type", getFileExtension(path));
+            textReader.getCustomMetadata().put("file_type", extension);
 
             return textReader.read();
         } catch (Exception e) {
             log.error("Failed to load document: {}", path, e);
             return List.of();
         }
+    }
+
+    /**
+     * Load PDF document using PdfDocumentLoader
+     */
+    private List<Document> loadPdfDocument(Path path) {
+        com.east.springairaglab.ingestion.loader.PdfDocumentLoader pdfLoader = new com.east.springairaglab.ingestion.loader.PdfDocumentLoader();
+        return pdfLoader.load(path);
     }
 
     private String getFileExtension(Path path) {

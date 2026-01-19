@@ -47,6 +47,7 @@ public class SplitterFactory {
                 fileName.endsWith(".gradle") ||
                 fileName.endsWith(".properties") ||
                 fileName.endsWith(".yaml") ||
-                fileName.endsWith(".yml");
+                fileName.endsWith(".yml") ||
+                fileName.endsWith(".pdf");
     }
 }
