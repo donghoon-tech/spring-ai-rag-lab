@@ -14,11 +14,12 @@ Document Ingestion → Code-Aware Chunking → Vector Store (pgvector/HNSW)
 
 ## Implementation Status
 
-### Phase 1: Data Ingestion (80%)
+### Phase 1: Data Ingestion (90%)
 - **Code-Aware Chunking**: Custom TextSplitter implementations preserve Java class/method boundaries and Markdown header hierarchy
-- **SplitterFactory**: File-type routing (`.java`, `.md`, `.txt`, `.gradle`, `.properties`, `.yaml`, `.yml`)
+- **SplitterFactory**: File-type routing (`.java`, `.md`, `.txt`, `.gradle`, `.properties`, `.yaml`, `.yml`, `.pdf`)
+- **PDF Support**: Spring AI PDF Reader with page-level granularity
 - **Vector Store**: pgvector integration with metadata enrichment
-- **Pending**: PDF loader, HNSW index tuning
+- **Pending**: HNSW index tuning
 
 ### Phase 2-5: Planned
 - Hybrid search (semantic + keyword)
@@ -123,10 +124,10 @@ backend/src/main/java/com/east/springairaglab/
 
 ## Next Steps
 
-1. Add PDF support via Spring AI PDF Reader
-2. Benchmark HNSW index performance (recall@k vs. latency)
-3. Implement hybrid search (BM25 + vector similarity)
+1. Benchmark HNSW index performance (recall@k vs. latency)
+2. Implement hybrid search (BM25 + vector similarity)
+3. Add PII masking via Spring AI Advisors
 
 ---
 
-**Status:** Phase 1 - 80% | Next: PDF Support & HNSW Optimization
+**Status:** Phase 1 - 90% | Next: HNSW Optimization
