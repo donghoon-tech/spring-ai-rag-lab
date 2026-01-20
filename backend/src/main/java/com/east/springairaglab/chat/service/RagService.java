@@ -25,6 +25,7 @@ public class RagService {
 
     private final VectorStore vectorStore;
     private final ChatModel chatModel;
+    private final HybridSearchService hybridSearchService; // Optional: for hybrid search
 
     /**
      * Process a chat query using RAG pipeline
@@ -56,13 +57,15 @@ public class RagService {
 
     /**
      * Retrieve similar documents from vector store
+     * Uses hybrid search if available, otherwise falls back to semantic search
      */
     private List<Document> retrieveDocuments(ChatRequest request) {
         try {
-            return vectorStore.similaritySearch(
-                    SearchRequest.query(request.getQuery())
-                            .withTopK(request.getTopK())
-                            .withSimilarityThreshold(request.getSimilarityThreshold()));
+            // Use hybrid search for better results
+            return hybridSearchService.search(
+                    request.getQuery(),
+                    request.getTopK(),
+                    request.getSimilarityThreshold());
         } catch (Exception e) {
             log.error("Error retrieving documents", e);
             return List.of();

@@ -37,6 +37,9 @@ spring:
       enabled: false
       embedding: 
         enabled: false
+    rag:
+      hybrid:
+        alpha: 0.7 # Weight for semantic search (0.7 = 70% semantic, 30% keyword)
 
 server:
   port: 8080

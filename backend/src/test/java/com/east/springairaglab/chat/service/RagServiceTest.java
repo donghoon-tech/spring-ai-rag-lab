@@ -27,133 +27,136 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class RagServiceTest {
 
-    @Mock
-    private VectorStore vectorStore;
+        @Mock
+        private VectorStore vectorStore;
 
-    @Mock
-    private ChatModel chatModel;
+        @Mock
+        private ChatModel chatModel;
 
-    private RagService ragService;
+        @Mock
+        private HybridSearchService hybridSearchService;
 
-    @BeforeEach
-    void setUp() {
-        ragService = new RagService(vectorStore, chatModel);
-    }
+        private RagService ragService;
 
-    @Test
-    void chat_ShouldReturnAnswerWithSources_WhenDocumentsFound() {
-        // Given
-        ChatRequest request = new ChatRequest("How does JavaCodeSplitter work?", 3, 0.7);
+        @BeforeEach
+        void setUp() {
+                ragService = new RagService(vectorStore, chatModel, hybridSearchService);
+        }
 
-        List<Document> mockDocuments = List.of(
-                new Document("JavaCodeSplitter uses regex patterns to parse Java code",
-                        Map.of("source", "/path/to/JavaCodeSplitter.java",
-                                "filename", "JavaCodeSplitter.java",
-                                "class_name", "JavaCodeSplitter")),
-                new Document("It tracks brace depth to identify method boundaries",
-                        Map.of("source", "/path/to/JavaCodeSplitter.java",
-                                "filename", "JavaCodeSplitter.java",
-                                "method_name", "doSplit")));
+        @Test
+        void chat_ShouldReturnAnswerWithSources_WhenDocumentsFound() {
+                // Given
+                ChatRequest request = new ChatRequest("How does JavaCodeSplitter work?", 3, 0.7);
 
-        when(vectorStore.similaritySearch(any(SearchRequest.class)))
-                .thenReturn(mockDocuments);
+                List<Document> mockDocuments = List.of(
+                                new Document("JavaCodeSplitter uses regex patterns to parse Java code",
+                                                Map.of("source", "/path/to/JavaCodeSplitter.java",
+                                                                "filename", "JavaCodeSplitter.java",
+                                                                "class_name", "JavaCodeSplitter")),
+                                new Document("It tracks brace depth to identify method boundaries",
+                                                Map.of("source", "/path/to/JavaCodeSplitter.java",
+                                                                "filename", "JavaCodeSplitter.java",
+                                                                "method_name", "doSplit")));
 
-        // Mock ChatModel response
-        Generation mockGeneration = mock(Generation.class);
-        when(mockGeneration.getOutput()).thenReturn(
-                new org.springframework.ai.chat.messages.AssistantMessage(
-                        "JavaCodeSplitter uses regex patterns to parse Java code and tracks brace depth."));
+                when(vectorStore.similaritySearch(any(SearchRequest.class)))
+                                .thenReturn(mockDocuments);
 
-        org.springframework.ai.chat.model.ChatResponse mockChatResponse = mock(
-                org.springframework.ai.chat.model.ChatResponse.class);
-        when(mockChatResponse.getResult()).thenReturn(mockGeneration);
-        when(chatModel.call(any(Prompt.class))).thenReturn(mockChatResponse);
+                // Mock ChatModel response
+                Generation mockGeneration = mock(Generation.class);
+                when(mockGeneration.getOutput()).thenReturn(
+                                new org.springframework.ai.chat.messages.AssistantMessage(
+                                                "JavaCodeSplitter uses regex patterns to parse Java code and tracks brace depth."));
 
-        // When
-        ChatResponse response = ragService.chat(request);
+                org.springframework.ai.chat.model.ChatResponse mockChatResponse = mock(
+                                org.springframework.ai.chat.model.ChatResponse.class);
+                when(mockChatResponse.getResult()).thenReturn(mockGeneration);
+                when(chatModel.call(any(Prompt.class))).thenReturn(mockChatResponse);
 
-        // Then
-        assertThat(response).isNotNull();
-        assertThat(response.getAnswer()).isNotBlank();
-        assertThat(response.getSources()).hasSize(2);
-        assertThat(response.getSources().get(0).getFilename()).isEqualTo("JavaCodeSplitter.java");
-        assertThat(response.getMetadata().getDocumentsRetrieved()).isEqualTo(2);
-        assertThat(response.getMetadata().getProcessingTimeMs()).isGreaterThan(0);
+                // When
+                ChatResponse response = ragService.chat(request);
 
-        verify(vectorStore, times(1)).similaritySearch(any(SearchRequest.class));
-        verify(chatModel, times(1)).call(any(Prompt.class));
-    }
+                // Then
+                assertThat(response).isNotNull();
+                assertThat(response.getAnswer()).isNotBlank();
+                assertThat(response.getSources()).hasSize(2);
+                assertThat(response.getSources().get(0).getFilename()).isEqualTo("JavaCodeSplitter.java");
+                assertThat(response.getMetadata().getDocumentsRetrieved()).isEqualTo(2);
+                assertThat(response.getMetadata().getProcessingTimeMs()).isGreaterThan(0);
 
-    @Test
-    void chat_ShouldReturnNoResultsMessage_WhenNoDocumentsFound() {
-        // Given
-        ChatRequest request = new ChatRequest("Unknown query", 3, 0.7);
+                verify(vectorStore, times(1)).similaritySearch(any(SearchRequest.class));
+                verify(chatModel, times(1)).call(any(Prompt.class));
+        }
 
-        when(vectorStore.similaritySearch(any(SearchRequest.class)))
-                .thenReturn(List.of());
+        @Test
+        void chat_ShouldReturnNoResultsMessage_WhenNoDocumentsFound() {
+                // Given
+                ChatRequest request = new ChatRequest("Unknown query", 3, 0.7);
 
-        // When
-        ChatResponse response = ragService.chat(request);
+                when(vectorStore.similaritySearch(any(SearchRequest.class)))
+                                .thenReturn(List.of());
 
-        // Then
-        assertThat(response).isNotNull();
-        assertThat(response.getAnswer()).contains("couldn't find any relevant information");
-        assertThat(response.getSources()).isEmpty();
-        assertThat(response.getMetadata().getDocumentsRetrieved()).isEqualTo(0);
+                // When
+                ChatResponse response = ragService.chat(request);
 
-        verify(vectorStore, times(1)).similaritySearch(any(SearchRequest.class));
-        verify(chatModel, never()).call(any(Prompt.class));
-    }
+                // Then
+                assertThat(response).isNotNull();
+                assertThat(response.getAnswer()).contains("couldn't find any relevant information");
+                assertThat(response.getSources()).isEmpty();
+                assertThat(response.getMetadata().getDocumentsRetrieved()).isEqualTo(0);
 
-    @Test
-    void chat_ShouldHandleVectorStoreException_Gracefully() {
-        // Given
-        ChatRequest request = new ChatRequest("Test query", 3, 0.7);
+                verify(vectorStore, times(1)).similaritySearch(any(SearchRequest.class));
+                verify(chatModel, never()).call(any(Prompt.class));
+        }
 
-        when(vectorStore.similaritySearch(any(SearchRequest.class)))
-                .thenThrow(new RuntimeException("Vector store error"));
+        @Test
+        void chat_ShouldHandleVectorStoreException_Gracefully() {
+                // Given
+                ChatRequest request = new ChatRequest("Test query", 3, 0.7);
 
-        // When
-        ChatResponse response = ragService.chat(request);
+                when(vectorStore.similaritySearch(any(SearchRequest.class)))
+                                .thenThrow(new RuntimeException("Vector store error"));
 
-        // Then
-        assertThat(response).isNotNull();
-        assertThat(response.getAnswer()).contains("couldn't find any relevant information");
-        assertThat(response.getSources()).isEmpty();
-    }
+                // When
+                ChatResponse response = ragService.chat(request);
 
-    @Test
-    void chat_ShouldIncludeMetadataInSources() {
-        // Given
-        ChatRequest request = new ChatRequest("Test query", 3, 0.7);
+                // Then
+                assertThat(response).isNotNull();
+                assertThat(response.getAnswer()).contains("couldn't find any relevant information");
+                assertThat(response.getSources()).isEmpty();
+        }
 
-        List<Document> mockDocuments = List.of(
-                new Document("Test content",
-                        Map.of("source", "/test.java",
-                                "filename", "test.java",
-                                "class_name", "TestClass",
-                                "method_name", "testMethod",
-                                "chunk_type", "java_code")));
+        @Test
+        void chat_ShouldIncludeMetadataInSources() {
+                // Given
+                ChatRequest request = new ChatRequest("Test query", 3, 0.7);
 
-        when(vectorStore.similaritySearch(any(SearchRequest.class)))
-                .thenReturn(mockDocuments);
+                List<Document> mockDocuments = List.of(
+                                new Document("Test content",
+                                                Map.of("source", "/test.java",
+                                                                "filename", "test.java",
+                                                                "class_name", "TestClass",
+                                                                "method_name", "testMethod",
+                                                                "chunk_type", "java_code")));
 
-        Generation mockGeneration = mock(Generation.class);
-        when(mockGeneration.getOutput()).thenReturn(
-                new org.springframework.ai.chat.messages.AssistantMessage("Test answer"));
+                when(vectorStore.similaritySearch(any(SearchRequest.class)))
+                                .thenReturn(mockDocuments);
 
-        org.springframework.ai.chat.model.ChatResponse mockChatResponse = mock(
-                org.springframework.ai.chat.model.ChatResponse.class);
-        when(mockChatResponse.getResult()).thenReturn(mockGeneration);
-        when(chatModel.call(any(Prompt.class))).thenReturn(mockChatResponse);
+                Generation mockGeneration = mock(Generation.class);
+                when(mockGeneration.getOutput()).thenReturn(
+                                new org.springframework.ai.chat.messages.AssistantMessage("Test answer"));
 
-        // When
-        ChatResponse response = ragService.chat(request);
+                org.springframework.ai.chat.model.ChatResponse mockChatResponse = mock(
+                                org.springframework.ai.chat.model.ChatResponse.class);
+                when(mockChatResponse.getResult()).thenReturn(mockGeneration);
+                when(chatModel.call(any(Prompt.class))).thenReturn(mockChatResponse);
 
-        // Then
-        assertThat(response.getSources()).hasSize(1);
-        ChatResponse.SourceDocument source = response.getSources().get(0);
-        assertThat(source.getMetadata()).contains("class_name=TestClass");
-        assertThat(source.getMetadata()).contains("method_name=testMethod");
-    }
+                // When
+                ChatResponse response = ragService.chat(request);
+
+                // Then
+                assertThat(response.getSources()).hasSize(1);
+                ChatResponse.SourceDocument source = response.getSources().get(0);
+                assertThat(source.getMetadata()).contains("class_name=TestClass");
+                assertThat(source.getMetadata()).contains("method_name=testMethod");
+        }
 }
