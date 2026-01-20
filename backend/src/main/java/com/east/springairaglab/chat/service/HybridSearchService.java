@@ -1,5 +1,6 @@
 package com.east.springairaglab.chat.service;
 
+import com.east.springairaglab.chat.dto.ChatRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
@@ -13,6 +14,7 @@ import java.util.stream.Collectors;
 
 /**
  * Hybrid search combining semantic (vector) and keyword (BM25) search
+ * with metadata filtering support
  */
 @Slf4j
 @Service
@@ -31,10 +33,13 @@ public class HybridSearchService {
      * @param query               Search query
      * @param topK                Number of results to return
      * @param similarityThreshold Minimum similarity for vector search
+     * @param filters             Metadata filters (optional)
      * @return Combined and re-ranked documents
      */
-    public List<Document> search(String query, int topK, double similarityThreshold) {
-        log.info("Performing hybrid search: query='{}', topK={}, alpha={}", query, topK, alpha);
+    public List<Document> search(String query, int topK, double similarityThreshold,
+            ChatRequest.MetadataFilter filters) {
+        log.info("Performing hybrid search: query='{}', topK={}, alpha={}, filters={}",
+                query, topK, alpha, filters);
 
         // 1. Semantic search (vector similarity)
         List<Document> semanticResults = performSemanticSearch(query, topK * 2, similarityThreshold);
@@ -42,11 +47,18 @@ public class HybridSearchService {
         // 2. Keyword search (BM25)
         List<KeywordSearchService.DocumentWithScore> keywordResults = keywordSearchService.search(query, topK * 2);
 
-        // 3. Combine and re-rank
+        // 3. Apply metadata filters if provided
+        if (filters != null) {
+            semanticResults = applyFilters(semanticResults, filters);
+            keywordResults = keywordResults.stream()
+                    .filter(result -> matchesFilter(result.document(), filters))
+                    .collect(Collectors.toList());
+        }
+
+        // 4. Combine and re-rank
         Map<String, ScoredDocument> combinedScores = new HashMap<>();
 
         // Normalize and add semantic scores
-        double maxSemanticScore = semanticResults.isEmpty() ? 1.0 : 1.0;
         for (int i = 0; i < semanticResults.size(); i++) {
             Document doc = semanticResults.get(i);
             String docId = getDocumentId(doc);
@@ -85,7 +97,7 @@ public class HybridSearchService {
             });
         }
 
-        // 4. Sort by combined score and return top-k
+        // 5. Sort by combined score and return top-k
         List<Document> results = combinedScores.values().stream()
                 .sorted(Comparator.comparingDouble(ScoredDocument::combinedScore).reversed())
                 .limit(topK)
@@ -98,10 +110,68 @@ public class HybridSearchService {
                 })
                 .collect(Collectors.toList());
 
-        log.info("Hybrid search returned {} results (semantic: {}, keyword: {})",
-                results.size(), semanticResults.size(), keywordResults.size());
+        log.info("Hybrid search returned {} results (semantic: {}, keyword: {}, filtered: {})",
+                results.size(), semanticResults.size(), keywordResults.size(), filters != null);
 
         return results;
+    }
+
+    /**
+     * Apply metadata filters to document list
+     */
+    private List<Document> applyFilters(List<Document> documents, ChatRequest.MetadataFilter filters) {
+        return documents.stream()
+                .filter(doc -> matchesFilter(doc, filters))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Check if document matches filter criteria
+     */
+    private boolean matchesFilter(Document doc, ChatRequest.MetadataFilter filters) {
+        Map<String, Object> metadata = doc.getMetadata();
+
+        // Filter by file type
+        if (filters.getFileType() != null && !filters.getFileType().isBlank()) {
+            String fileType = metadata.getOrDefault("file_type", "").toString();
+            if (!fileType.equalsIgnoreCase(filters.getFileType())) {
+                return false;
+            }
+        }
+
+        // Filter by source path (supports wildcards)
+        if (filters.getSourcePath() != null && !filters.getSourcePath().isBlank()) {
+            String source = metadata.getOrDefault("source", "").toString();
+            if (!source.contains(filters.getSourcePath())) {
+                return false;
+            }
+        }
+
+        // Filter by class name
+        if (filters.getClassName() != null && !filters.getClassName().isBlank()) {
+            String className = metadata.getOrDefault("class_name", "").toString();
+            if (!className.equalsIgnoreCase(filters.getClassName())) {
+                return false;
+            }
+        }
+
+        // Filter by method name
+        if (filters.getMethodName() != null && !filters.getMethodName().isBlank()) {
+            String methodName = metadata.getOrDefault("method_name", "").toString();
+            if (!methodName.equalsIgnoreCase(filters.getMethodName())) {
+                return false;
+            }
+        }
+
+        // Filter by filename
+        if (filters.getFilename() != null && !filters.getFilename().isBlank()) {
+            String filename = metadata.getOrDefault("filename", "").toString();
+            if (!filename.contains(filters.getFilename())) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

@@ -65,7 +65,8 @@ public class RagService {
             return hybridSearchService.search(
                     request.getQuery(),
                     request.getTopK(),
-                    request.getSimilarityThreshold());
+                    request.getSimilarityThreshold(),
+                    request.getFilters());
         } catch (Exception e) {
             log.error("Error retrieving documents", e);
             return List.of();
