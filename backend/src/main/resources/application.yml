@@ -40,6 +40,7 @@ spring:
     rag:
       hybrid:
         alpha: 0.7 # Weight for semantic search (0.7 = 70% semantic, 30% keyword)
+        retrieval-multiplier: 2 # Retrieve topK * multiplier for better recall before re-ranking
 
 server:
   port: 8080
