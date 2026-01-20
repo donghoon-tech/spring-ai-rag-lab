@@ -37,6 +37,11 @@ public class ChatResponse {
     @AllArgsConstructor
     public static class SourceDocument {
         /**
+         * Citation number (e.g., [1], [2])
+         */
+        private Integer citationNumber;
+
+        /**
          * File path
          */
         private String source;
@@ -60,6 +65,21 @@ public class ChatResponse {
          * Additional metadata (class_name, method_name, etc.)
          */
         private String metadata;
+
+        /**
+         * Line range in source file (e.g., "45-67")
+         */
+        private String lineRange;
+
+        /**
+         * Class name (for Java files)
+         */
+        private String className;
+
+        /**
+         * Method name (for Java files)
+         */
+        private String methodName;
     }
 
     @Data

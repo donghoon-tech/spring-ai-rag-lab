@@ -11,7 +11,9 @@ import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -102,10 +104,14 @@ public class RagService {
 
                 Guidelines:
                 - Be concise and technical
-                - Cite specific file names and line numbers when possible
+                - ALWAYS cite sources using [1], [2], etc. when referencing specific information
+                - Cite specific file names, class names, and method names when available
                 - If the context doesn't contain enough information, say so
                 - Use code examples from the context when helpful
                 - Format code blocks with proper syntax highlighting
+                - Place citations immediately after the relevant statement
+
+                Example: "The UserService class handles authentication [1] using JWT tokens [2]."
                 """;
 
         String userPrompt = String.format("""
@@ -133,20 +139,31 @@ public class RagService {
     }
 
     /**
-     * Build response DTO
+     * Build response DTO with citations
      */
     private ChatResponse buildResponse(String answer, List<Document> documents, long startTime) {
-        List<ChatResponse.SourceDocument> sources = documents.stream()
-                .map(doc -> ChatResponse.SourceDocument.builder()
-                        .source(doc.getMetadata().getOrDefault("source", "unknown").toString())
-                        .filename(doc.getMetadata().getOrDefault("filename", "unknown").toString())
-                        .content(truncate(doc.getContent(), 200))
-                        .score(doc.getMetadata().containsKey("distance")
-                                ? 1.0 - (Double) doc.getMetadata().get("distance")
-                                : null)
-                        .metadata(formatMetadata(doc))
-                        .build())
-                .collect(Collectors.toList());
+        List<ChatResponse.SourceDocument> sources = new ArrayList<>();
+
+        for (int i = 0; i < documents.size(); i++) {
+            Document doc = documents.get(i);
+            Map<String, Object> metadata = doc.getMetadata();
+
+            sources.add(ChatResponse.SourceDocument.builder()
+                    .citationNumber(i + 1)
+                    .source(metadata.getOrDefault("source", "unknown").toString())
+                    .filename(metadata.getOrDefault("filename", "unknown").toString())
+                    .content(truncate(doc.getContent(), 200))
+                    .score(metadata.containsKey("hybrid_score")
+                            ? (Double) metadata.get("hybrid_score")
+                            : (metadata.containsKey("distance")
+                                    ? 1.0 - (Double) metadata.get("distance")
+                                    : null))
+                    .metadata(formatMetadata(doc))
+                    .lineRange(extractLineRange(metadata))
+                    .className(metadata.getOrDefault("class_name", "").toString())
+                    .methodName(metadata.getOrDefault("method_name", "").toString())
+                    .build());
+        }
 
         long processingTime = System.currentTimeMillis() - startTime;
 
@@ -159,6 +176,19 @@ public class RagService {
                         .model(chatModel.getClass().getSimpleName())
                         .build())
                 .build();
+    }
+
+    /**
+     * Extract line range from metadata
+     */
+    private String extractLineRange(Map<String, Object> metadata) {
+        Object startLine = metadata.get("start_line");
+        Object endLine = metadata.get("end_line");
+
+        if (startLine != null && endLine != null) {
+            return startLine + "-" + endLine;
+        }
+        return null;
     }
 
     /**
