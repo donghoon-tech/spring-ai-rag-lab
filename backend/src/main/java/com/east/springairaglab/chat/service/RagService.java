@@ -2,13 +2,12 @@ package com.east.springairaglab.chat.service;
 
 import com.east.springairaglab.chat.dto.ChatRequest;
 import com.east.springairaglab.chat.dto.ChatResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.document.Document;
-import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -22,12 +21,19 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class RagService {
 
     private final VectorStore vectorStore;
     private final ChatModel chatModel;
-    private final HybridSearchService hybridSearchService; // Optional: for hybrid search
+    private final HybridSearchService hybridSearchService;
+
+    public RagService(VectorStore vectorStore,
+            @Qualifier("ollamaChatModel") ChatModel chatModel,
+            HybridSearchService hybridSearchService) {
+        this.vectorStore = vectorStore;
+        this.chatModel = chatModel;
+        this.hybridSearchService = hybridSearchService;
+    }
 
     /**
      * Process a chat query using RAG pipeline
