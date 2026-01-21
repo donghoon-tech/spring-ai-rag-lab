@@ -1,134 +1,131 @@
 # Spring AI RAG Lab
 
-Enterprise RAG system using Java 21 Virtual Threads and Spring AI. Focus: code-aware chunking for technical documentation retrieval.
+Enterprise-grade RAG system specialized for technical documentation and source code. Built with **Java 21 Virtual Threads** and **Spring AI**.
 
-## Architecture
+## 🚀 Quick Start
 
-```
-Document Ingestion → Code-Aware Chunking → Vector Store (pgvector/HNSW)
-                                                    ↓
-                                            RAG Pipeline
-                                                    ↓
-                                        AI Models (Ollama/OpenAI)
-```
+### Prerequisites
+- Java 21+
+- Docker & Docker Compose
+- Node.js 18+
+- Ollama (Local LLM)
 
-## Implementation Status
-
-### Phase 1: Data Ingestion (100% ✅)
-- **Code-Aware Chunking**: Custom TextSplitter implementations preserve Java class/method boundaries and Markdown header hierarchy
-- **SplitterFactory**: File-type routing (`.java`, `.md`, `.txt`, `.gradle`, `.properties`, `.yaml`, `.yml`, `.pdf`)
-- **PDF Support**: Spring AI PDF Reader with page-level granularity
-- **Vector Store**: pgvector integration with metadata enrichment
-- **Optimization**: HNSW index tuning with optimized parameters
-
-### Phase 2-5: Planned
-- Hybrid search (semantic + keyword)
-- PII masking via Spring AI Advisors
-- Engineering dashboard with TTFT/token cost metrics
-- Event-driven ingestion with DLQ
-
-## Tech Stack
-
-| Component | Choice | Rationale |
-|-----------|--------|-----------|
-| Runtime | Java 21 Virtual Threads | High-concurrency I/O for parallel LLM calls |
-| Framework | Spring Boot 3.4 + Spring AI 1.0.0-M5 | Native RAG primitives, production-ready |
-| Vector DB | PostgreSQL + pgvector | HNSW indexing, ACID guarantees |
-| Models | Ollama (local), GPT-4o (cloud) | Cost/latency trade-off testing |
-
-## Key Components
-
-### JavaCodeSplitter
-Regex-based AST-lite parser. Tracks brace depth to identify method boundaries. Prevents mid-method splits that degrade retrieval quality.
-
-**Metadata added:**
-- `class_name`: Extracted via `CLASS_PATTERN` regex
-- `method_name`: Per-method tracking
-- `chunk_type`: `java_code`
-- `chunk_index`, `total_chunks`: Navigation
-
-**Token estimation:** 1 token ≈ 4 chars (code-specific heuristic)
-
-### MarkdownCodeSplitter
-Header-based splitting (`#{1,6}`). Preserves document hierarchy. Default chunk size: 1000 tokens.
-
-### SplitterFactory
-File extension → TextSplitter mapping. Fallback: `TokenTextSplitter` for unsupported types.
-
-## Setup
-
+### 1. Infrastructure
 ```bash
-# Infrastructure
-cd backend && docker-compose up -d
+# Start PostgreSQL (pgvector)
+docker run -d --name postgres-rag -e POSTGRES_USER=myuser -e POSTGRES_PASSWORD=mypassword -e POSTGRES_DB=springairaglabdb -p 5432:5432 pgvector/pgvector:pg16
 
-# Build
-./gradlew clean build
+# Setup Ollama
+ollama serve
+ollama pull llama3.2
+ollama pull nomic-embed-text
+```
 
-# Run
+### 2. Backend
+```bash
+cd backend
 ./gradlew bootRun
-
-# Ingest
-curl -X POST "http://localhost:8080/api/v1/ingest?path=/path/to/codebase"
 ```
 
-## Configuration
-
-```yaml
-# application.yml
-spring:
-  ai:
-    vectorstore:
-      pgvector:
-        index-type: HNSW
-        distance-type: COSINE_DISTANCE
-        dimensions: 1536  # OpenAI embedding size
-```
-
-## Project Structure
-
-```
-backend/src/main/java/com/east/springairaglab/
-├── ingestion/
-│   ├── api/DocumentIngestionController.java
-│   ├── service/IngestionService.java
-│   ├── splitter/
-│   │   ├── JavaCodeSplitter.java
-│   │   └── MarkdownCodeSplitter.java
-│   └── factory/SplitterFactory.java
-└── config/
-```
-
-## Testing
-
+### 3. Frontend
 ```bash
-./gradlew test --tests "JavaCodeSplitterTest"
+cd frontend
+npm install
+npm run dev
 ```
 
-**Results:**
-- `shouldSplitJavaCodeByMethods()`: PASSED
-- `shouldPreserveClassContext()`: PASSED
-- Metadata validation: class_name=Calculator, chunk_type=java_code
-
-## Metrics (Phase 1)
-
-- **Files Created**: 6 (3 main, 3 test)
-- **LOC Added**: 629
-- **Supported File Types**: 7
-- **Test Coverage**: 100% for splitters
-
-## Documentation
-
-- `PROJECT.md`: Full specification
-- `docs/PROGRESS.md`: Phase 1 implementation log
-- `docs/ADR/`: Architecture decisions (pending)
-
-## Next Steps
-(Phase 2: Advanced Retrieval & RAG Logic)
-
-1. Implement Hybrid Search (BM25 + Semantic Search)
-2. Add Metadata Filtering for precise retrieval
-3. Implement Citation Tracking (Source attribution)
+Visit `http://localhost:5173` to interact with the RAG system.
 
 ---
 
-**Status:** Phase 1 Complete (100%) ✅ | Next: Phase 2 Start 🚀
+## 🏗 Architecture
+
+**Pipeline Flow:**
+`Ingestion` -> `Chunking` -> `Vector Store` -> `Retrieval (Hybrid)` -> `Generation`
+
+1.  **Ingestion & Chunking**:
+    *   **JavaCodeSplitter**: Preserves class/method structures using regex-based parsing.
+    *   **MarkdownCodeSplitter**: Hierarchical splitting by headers.
+    *   **Metadata**: Attaches `className`, `methodName`, `fileType`, and `lineRange`.
+
+2.  **Storage**:
+    *   **PostgreSQL**: Stores both vectors (`embedding` column) and metadata (`jsonb`).
+    *   **Indexing**: HNSW index (`m=16`, `ef_construction=200`) for performant ANN search.
+
+3.  **Retrieval (Hybrid Search)**:
+    *   **Semantic**: Cosine similarity via `pgvector`.
+    *   **Keyword**: BM25-like scoring via `ts_rank_cd`.
+    *   **Fusion**: Weighted combination (`α=0.7` semantic bias).
+
+---
+
+## ✨ Key Features
+
+### ✅ Phase 1: Engineering Pipeline
+*   **Code-Aware Ingestion**: Specialized splitters for `.java` and `.md` files to maintain semantic context.
+*   **Vector Optimization**: Fine-tuned HNSW index parameters for optimal recall/latency trade-off.
+*   **Extensible Factory**: Clean factory pattern to route file types (`.pdf`, `.txt`, `.yml`) to appropriate loaders.
+
+### ✅ Phase 2: Advanced Retrieval
+*   **Hybrid Search**: Overcomes semantic search limitations for exact identifiers (variable names, error codes).
+*   **Metadata Filtering**: Scoped search (e.g., "Find `authenticate` in `UserService.java`").
+*   **Citation Tracking**: Responses include precise source references `[1]` with line numbers.
+*   **Modern UI**: React/Vite interface for real-time interaction and context visualization.
+
+---
+
+## 🛠 Tech Stack
+
+| Component | Technology | Rationale |
+|-----------|-----------|-----------|
+| **Core** | Java 21, Spring Boot 3.4 | Virtual Threads for high-throughput I/O. |
+| **AI Framework** | Spring AI | Standardized abstractions for RAG components. |
+| **Database** | PostgreSQL + pgvector | relational metadata + vector operations in one ACID conformant DB. |
+| **Models** | Ollama (Llama 3, Nomic) | Local, private, free inference for development. |
+| **Frontend** | React, TypeScript, Vite | Fast, type-safe development cycle. |
+
+---
+
+## 📚 API Reference
+
+### Chat
+`POST /api/v1/chat`
+
+```json
+{
+  "query": "How does token validation work?",
+  "topK": 5,
+  "similarityThreshold": 0.7,
+  "filters": {
+    "fileType": "java"
+  }
+}
+```
+
+### Ingest
+`POST /api/v1/ingest?path=/absolute/path/to/project`
+
+---
+
+## 📝 Configuration
+
+**Hybrid Search Tuning** (`application.yml`):
+```yaml
+spring.ai.rag.hybrid:
+  alpha: 0.7                  # Weight for semantic score (0.0 - 1.0)
+  retrieval-multiplier: 2     # Fetch 2x topK candidates before ranking
+```
+
+---
+
+## 📂 Documentation
+
+Detailed documentation available in `docs/`:
+- [PROGRESS.md](docs/PROGRESS.md): Detailed project status and achievements.
+- [rag-metadata.md](docs/rag-metadata.md): Metadata schema design.
+- [hybrid-search.md](docs/hybrid-search.md): Mathematical foundation of the search algorithm.
+- [retrieval-models.md](docs/retrieval-models.md): Comparison of DPR, ColBERT, and BM25.
+
+---
+
+**License**: MIT
