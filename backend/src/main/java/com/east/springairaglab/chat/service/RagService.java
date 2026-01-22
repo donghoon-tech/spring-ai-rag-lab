@@ -2,6 +2,7 @@ package com.east.springairaglab.chat.service;
 
 import com.east.springairaglab.chat.dto.ChatRequest;
 import com.east.springairaglab.chat.dto.ChatResponse;
+import com.east.springairaglab.security.interceptor.PiiMaskingInterceptor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
@@ -26,13 +27,16 @@ public class RagService {
     private final VectorStore vectorStore;
     private final ChatModel chatModel;
     private final HybridSearchService hybridSearchService;
+    private final PiiMaskingInterceptor piiMaskingInterceptor;
 
     public RagService(VectorStore vectorStore,
             @Qualifier("ollamaChatModel") ChatModel chatModel,
-            HybridSearchService hybridSearchService) {
+            HybridSearchService hybridSearchService,
+            PiiMaskingInterceptor piiMaskingInterceptor) {
         this.vectorStore = vectorStore;
         this.chatModel = chatModel;
         this.hybridSearchService = hybridSearchService;
+        this.piiMaskingInterceptor = piiMaskingInterceptor;
     }
 
     /**
@@ -104,6 +108,8 @@ public class RagService {
      * Generate answer using LLM with context
      */
     private String generateAnswer(String query, String context) {
+        // Mask PII in query before sending to LLM
+        String maskedQuery = piiMaskingInterceptor.maskPrompt(query);
         String systemPrompt = """
                 You are a helpful code assistant with deep knowledge of software engineering.
                 Answer the user's question based ONLY on the provided code context.
@@ -127,7 +133,7 @@ public class RagService {
                 Question: %s
 
                 Answer:
-                """, context, query);
+                """, context, maskedQuery);
 
         try {
             ChatClient chatClient = ChatClient.create(chatModel);

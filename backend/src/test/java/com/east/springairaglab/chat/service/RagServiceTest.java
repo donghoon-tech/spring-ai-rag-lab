@@ -2,6 +2,7 @@ package com.east.springairaglab.chat.service;
 
 import com.east.springairaglab.chat.dto.ChatRequest;
 import com.east.springairaglab.chat.dto.ChatResponse;
+import com.east.springairaglab.security.interceptor.PiiMaskingInterceptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,11 +37,14 @@ class RagServiceTest {
         @Mock
         private HybridSearchService hybridSearchService;
 
+        @Mock
+        private PiiMaskingInterceptor piiMaskingInterceptor;
+
         private RagService ragService;
 
         @BeforeEach
         void setUp() {
-                ragService = new RagService(vectorStore, chatModel, hybridSearchService);
+                ragService = new RagService(vectorStore, chatModel, hybridSearchService, piiMaskingInterceptor);
         }
 
         @Test
@@ -57,6 +61,13 @@ class RagServiceTest {
                                                 Map.of("source", "/path/to/JavaCodeSplitter.java",
                                                                 "filename", "JavaCodeSplitter.java",
                                                                 "method_name", "doSplit")));
+
+                when(hybridSearchService.search(anyString(), anyInt(), anyDouble(), any()))
+                                .thenReturn(mockDocuments);
+
+                // Mock PII masking (return input unchanged for test)
+                when(piiMaskingInterceptor.maskPrompt(anyString()))
+                                .thenAnswer(invocation -> invocation.getArgument(0));
 
                 when(vectorStore.similaritySearch(any(SearchRequest.class)))
                                 .thenReturn(mockDocuments);
