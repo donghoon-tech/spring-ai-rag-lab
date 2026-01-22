@@ -1,0 +1,42 @@
+[
+    {
+        "query": "How does JavaCodeSplitter work?",
+        "expected_concepts": [
+            "regex",
+            "brace depth",
+            "method boundaries"
+        ]
+    },
+    {
+        "query": "What is the chunk overlap strategy?",
+        "expected_concepts": [
+            "sliding window",
+            "token overlap"
+        ]
+    },
+    {
+        "query": "How are PDF documents processed?",
+        "expected_concepts": [
+            "PdfDocumentLoader",
+            "Apache PDFBox",
+            "paragraph splitting"
+        ]
+    },
+    {
+        "query": "Does the system handle PII?",
+        "expected_concepts": [
+            "PiiDetector",
+            "masking",
+            "email",
+            "phone"
+        ]
+    },
+    {
+        "query": "How is PII restored in the response?",
+        "expected_concepts": [
+            "RagService",
+            "mappings",
+            "restorePii"
+        ]
+    }
+]
