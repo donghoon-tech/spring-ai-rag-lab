@@ -2,6 +2,8 @@ package com.east.springairaglab.chat.service;
 
 import com.east.springairaglab.chat.dto.ChatRequest;
 import com.east.springairaglab.chat.dto.ChatResponse;
+import com.east.springairaglab.security.detector.PiiDetector;
+import com.east.springairaglab.security.dto.MaskingResult;
 import com.east.springairaglab.security.interceptor.PiiMaskingInterceptor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -28,15 +30,18 @@ public class RagService {
     private final ChatModel chatModel;
     private final HybridSearchService hybridSearchService;
     private final PiiMaskingInterceptor piiMaskingInterceptor;
+    private final PiiDetector piiDetector;
 
     public RagService(VectorStore vectorStore,
             @Qualifier("ollamaChatModel") ChatModel chatModel,
             HybridSearchService hybridSearchService,
-            PiiMaskingInterceptor piiMaskingInterceptor) {
+            PiiMaskingInterceptor piiMaskingInterceptor,
+            PiiDetector piiDetector) {
         this.vectorStore = vectorStore;
         this.chatModel = chatModel;
         this.hybridSearchService = hybridSearchService;
         this.piiMaskingInterceptor = piiMaskingInterceptor;
+        this.piiDetector = piiDetector;
     }
 
     /**
@@ -109,7 +114,8 @@ public class RagService {
      */
     private String generateAnswer(String query, String context) {
         // Mask PII in query before sending to LLM
-        String maskedQuery = piiMaskingInterceptor.maskPrompt(query);
+        MaskingResult maskingResult = piiDetector.maskPii(query);
+        String maskedQuery = maskingResult.maskedText();
         String systemPrompt = """
                 You are a helpful code assistant with deep knowledge of software engineering.
                 Answer the user's question based ONLY on the provided code context.
@@ -138,11 +144,19 @@ public class RagService {
         try {
             ChatClient chatClient = ChatClient.create(chatModel);
 
-            return chatClient.prompt()
+            String answer = chatClient.prompt()
                     .system(systemPrompt)
                     .user(userPrompt)
                     .call()
                     .content();
+
+            // Restore PII in the answer
+            if (!maskingResult.mappings().isEmpty()) {
+                log.debug("Restoring PII in LLM response");
+                return piiDetector.restorePii(answer, maskingResult.mappings());
+            }
+
+            return answer;
 
         } catch (Exception e) {
             log.error("Error generating answer", e);

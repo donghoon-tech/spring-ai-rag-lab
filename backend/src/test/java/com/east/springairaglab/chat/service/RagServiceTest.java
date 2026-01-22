@@ -2,12 +2,16 @@ package com.east.springairaglab.chat.service;
 
 import com.east.springairaglab.chat.dto.ChatRequest;
 import com.east.springairaglab.chat.dto.ChatResponse;
+import com.east.springairaglab.security.detector.PiiDetector;
+import com.east.springairaglab.security.dto.MaskingResult;
 import com.east.springairaglab.security.interceptor.PiiMaskingInterceptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -26,6 +30,7 @@ import static org.mockito.Mockito.*;
  * Unit tests for RagService
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class RagServiceTest {
 
         @Mock
@@ -40,11 +45,15 @@ class RagServiceTest {
         @Mock
         private PiiMaskingInterceptor piiMaskingInterceptor;
 
+        @Mock
+        private PiiDetector piiDetector;
+
         private RagService ragService;
 
         @BeforeEach
         void setUp() {
-                ragService = new RagService(vectorStore, chatModel, hybridSearchService, piiMaskingInterceptor);
+                ragService = new RagService(vectorStore, chatModel, hybridSearchService, piiMaskingInterceptor,
+                                piiDetector);
         }
 
         @Test
@@ -66,10 +75,10 @@ class RagServiceTest {
                                 .thenReturn(mockDocuments);
 
                 // Mock PII masking (return input unchanged for test)
-                when(piiMaskingInterceptor.maskPrompt(anyString()))
-                                .thenAnswer(invocation -> invocation.getArgument(0));
+                when(piiDetector.maskPii(anyString()))
+                                .thenReturn(new MaskingResult("How does JavaCodeSplitter work?", Map.of()));
 
-                when(vectorStore.similaritySearch(any(SearchRequest.class)))
+                when(hybridSearchService.search(anyString(), anyInt(), anyDouble(), any()))
                                 .thenReturn(mockDocuments);
 
                 // Mock ChatModel response
@@ -94,7 +103,7 @@ class RagServiceTest {
                 assertThat(response.getMetadata().getDocumentsRetrieved()).isEqualTo(2);
                 assertThat(response.getMetadata().getProcessingTimeMs()).isGreaterThan(0);
 
-                verify(vectorStore, times(1)).similaritySearch(any(SearchRequest.class));
+                verify(hybridSearchService, times(1)).search(anyString(), anyInt(), anyDouble(), any());
                 verify(chatModel, times(1)).call(any(Prompt.class));
         }
 
@@ -103,7 +112,11 @@ class RagServiceTest {
                 // Given
                 ChatRequest request = new ChatRequest("Unknown query", 3, 0.7);
 
-                when(vectorStore.similaritySearch(any(SearchRequest.class)))
+                // Mock PII masking
+                when(piiDetector.maskPii(anyString()))
+                                .thenReturn(new MaskingResult("Unknown query", Map.of()));
+
+                when(hybridSearchService.search(anyString(), anyInt(), anyDouble(), any()))
                                 .thenReturn(List.of());
 
                 // When
@@ -115,7 +128,7 @@ class RagServiceTest {
                 assertThat(response.getSources()).isEmpty();
                 assertThat(response.getMetadata().getDocumentsRetrieved()).isEqualTo(0);
 
-                verify(vectorStore, times(1)).similaritySearch(any(SearchRequest.class));
+                verify(hybridSearchService, times(1)).search(anyString(), anyInt(), anyDouble(), any());
                 verify(chatModel, never()).call(any(Prompt.class));
         }
 
@@ -124,8 +137,12 @@ class RagServiceTest {
                 // Given
                 ChatRequest request = new ChatRequest("Test query", 3, 0.7);
 
-                when(vectorStore.similaritySearch(any(SearchRequest.class)))
-                                .thenThrow(new RuntimeException("Vector store error"));
+                // Mock PII masking
+                when(piiDetector.maskPii(anyString()))
+                                .thenReturn(new MaskingResult("Test query", Map.of()));
+
+                when(hybridSearchService.search(anyString(), anyInt(), anyDouble(), any()))
+                                .thenThrow(new RuntimeException("Hybrid search error"));
 
                 // When
                 ChatResponse response = ragService.chat(request);
@@ -149,7 +166,11 @@ class RagServiceTest {
                                                                 "method_name", "testMethod",
                                                                 "chunk_type", "java_code")));
 
-                when(vectorStore.similaritySearch(any(SearchRequest.class)))
+                // Mock PII masking
+                when(piiDetector.maskPii(anyString()))
+                                .thenReturn(new MaskingResult("Query", Map.of()));
+
+                when(hybridSearchService.search(anyString(), anyInt(), anyDouble(), any()))
                                 .thenReturn(mockDocuments);
 
                 Generation mockGeneration = mock(Generation.class);
